@@ -74,4 +74,10 @@ knitr::include_graphics("figures/neiss-bodyparts.png")
   
 ## Group Exercise
 
+1. Go to the NEISS website (Google is your best friend!)
+1. Find the code book 
+1. Look up some product codes that you find interesting
+1. Create a ggplot that show the distribution of injuries caused by those products by month
+1. Create a ggplot that show the distribution of injuries caused by those products by weekday
+1. Stratify those distributions by sex
 

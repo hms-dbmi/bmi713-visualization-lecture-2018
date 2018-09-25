@@ -192,7 +192,9 @@ map_codes <- function( data_tibble, code_tibble, data_column_name, new_data_colu
 ## Let's Make a Plot
 
 ```{r}
-g <- ggplot(neiss, aes(Treatment_Month)) + geom_bar(aes(fill=Sex_Label)) + facet_grid(rows = vars(Location))
+g <- ggplot(neiss, aes(Treatment_Month)) + geom_bar()
 g
 ```
+
+To be continued ...
 

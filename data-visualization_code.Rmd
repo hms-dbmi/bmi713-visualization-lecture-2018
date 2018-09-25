@@ -10,13 +10,26 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(viridis)
-#library(dplyr)
 library(lubridate)
 
 # 1. if issues with compiling packages (xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun): "xcode-select --install" in Terminal
 # 2. Currently unable to install data.tables package due to Mojave issue: clang: error: unsupported option '-fopenmp'
 #library(plotly)
 ```
+
+## NEISS Data
+
+NEISS Data can be downloaded from the NEISS Query Builder. Data files have to be downloaded by year:
+
+[https://www.cpsc.gov/cgibin/NEISSQuery/home.aspx](https://www.cpsc.gov/cgibin/NEISSQuery/home.aspx): Check "Researcher" box for the first question, then download data files and code book as tab-delimited text files.
+
+An R package of the NEISS data is available as well:
+
+[https://github.com/hadley/neiss](https://github.com/hadley/neiss)
+
+Here's an interactive example visualization of NEISS data:
+
+[https://flowingdata.com/2016/02/09/why-people-visit-the-emergency-room/](https://flowingdata.com/2016/02/09/why-people-visit-the-emergency-room/)
 
 ### Loading the Data
 
@@ -49,18 +62,12 @@ neiss <- read_tsv("data/neiss2017.tsv", col_types = cols(Treatment_Date = col_da
 str(neiss)
 ```
 
-
-```{r}
-# potential issue in line 160879: additional line break?
-neiss <- read_tsv("data/neiss2017.tsv", col_types = cols(Treatment_Date = col_date(format="%m/%d/%Y")))
-```
-
-
-
 ## Count Cases per Month
 
 ```{r}
 # https://ro-che.info/articles/2017-02-22-group_by_month_r
+cases_month <- neiss %>% group_by(month=floor_date(Treatment_Date, "month"))
+                                  
 cases_month <- neiss %>% group_by(month=floor_date(Treatment_Date, "month")) %>% summarize(cases=n())
 
 cases_month
@@ -70,7 +77,7 @@ stopifnot( sum(cases_month$cases) == dim(neiss)[1] )
 ## Count Cases per Weekday
 
 ```{r}
-cases_weekday <- neiss %>% group_by(CPSC_Case_Number, day = weekdays(Treatment_Date)) %>% group_by(day) %>% summarize(cases = n())
+cases_weekday <- neiss %>% group_by(day = weekdays(Treatment_Date)) %>% summarize(cases = n())
 
 cases_weekday
 stopifnot( sum(cases_weekday$cases) == dim(neiss)[1] )
@@ -172,7 +179,6 @@ neiss <- neiss %>% mutate(Sex_Label=sub(".* - ", "", factor(codes[code_mapping,]
 
 ```
 
-
 Because it would be painful to repeat these steps manually for every variable that we want to map, we will create a function that will do that for us. The only parameters that we need in addition to the data and code tibbles are the name of the code table column, the name of the `neiss` column, and the name of the new column to be added to the `neiss` tibble.
 
 ```{r}
@@ -196,5 +202,45 @@ g <- ggplot(neiss, aes(Treatment_Month)) + geom_bar()
 g
 ```
 
-To be continued ...
+## Applying a Filter before Plotting
+```{r}
+g <- ggplot(filter(neiss, Age < 20), aes(Treatment_Month)) + geom_bar(aes(fill=Sex_Label))
+g
+```
 
+Here is the same plot with facets.
+
+```{r}
+g <- ggplot(filter(neiss, Age < 20), aes(Treatment_Month)) + geom_bar(aes(fill=Sex_Label)) + facet_grid(rows=vars(Sex_Label))
+g
+```
+
+## In-Class Group Exercise
+
+1. Go to the NEISS website: [https://www.cpsc.gov/Research--Statistics/NEISS-Injury-Data](https://www.cpsc.gov/Research--Statistics/NEISS-Injury-Data)
+1. Find the code book: [https://www.cpsc.gov/s3fs-public/2017NEISSCodingManualCPSConlyNontrauma.pdf](https://www.cpsc.gov/s3fs-public/2017NEISSCodingManualCPSConlyNontrauma.pdf)
+1. Look up some product codes that you find interesting (e.g. 1313 - Fireworks, 5040 - Bicycles)
+1. Create a ggplot that shows the distribution of injuries caused by those products by month
+1. Create a ggplot that shows the distribution of injuries caused by those products by weekday
+1. Stratify those distributions by sex
+
+### Plot showing the distribution of injuries caused by Fireworks and Bicycles by Month and Sex
+
+```{r}
+g <- ggplot(filter(neiss, Product_1==1313 | Product_1==5040), aes(Treatment_Month)) + geom_bar(aes(fill=Sex_Label)) + facet_grid(rows=vars(Product_1_Label))
+g
+```
+
+### Plot showing the distribution of injuries caused by Fireworks and Bicycles by Weekday and Sex
+
+```{r}
+g <- ggplot(filter(neiss, Product_1==1313 | Product_1==5040), aes(Treatment_Weekday)) + geom_bar(aes(fill=Sex_Label)) + facet_grid(cols= vars(Product_1_Label))
+g
+```
+
+We can also rotate the plot by 90 degrees using `coord_flip`. Adding `x=forcats::fct_rev(Treatment_Weekday)` to the aesthetic of the bar geometry will reverse the order (otherwise the weekdays are listed in reverse chronological order).
+
+```{r}
+g <- ggplot(filter(neiss, Product_1==1313 | Product_1==5040), aes(Treatment_Weekday)) + geom_bar(aes(fill=Sex_Label, x=forcats::fct_rev(Treatment_Weekday))) + facet_grid(cols= vars(Product_1_Label)) + coord_flip()
+g
+```

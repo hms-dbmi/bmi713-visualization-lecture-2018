@@ -12,6 +12,9 @@ library(tidyverse)
 library(viridis)
 library(lubridate)
 
+# in case the operating system language is not English (https://stackoverflow.com/questions/17031002/get-weekdays-in-english-in-r)
+Sys.setlocale("LC_TIME", "en_US")
+
 # 1. if issues with compiling packages (xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun): "xcode-select --install" in Terminal
 # 2. Currently unable to install data.tables package due to Mojave issue: clang: error: unsupported option '-fopenmp'
 #library(plotly)

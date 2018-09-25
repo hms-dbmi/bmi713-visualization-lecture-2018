@@ -1,0 +1,77 @@
+---
+title: "BMI 713/BMIF 313qc"
+author: "Nils Gehlenborg"
+date: "<small>Class 7: Data Visualization / 25 September 2018</small>"
+output:
+  ioslides_presentation:
+    autosize: true  
+    widescreen: true
+    #smaller: true      
+  beamer_presentation: default
+subtitle: "<small>Computing Skills for Biomedical Sciences</small>"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Announcements
+
+## R Workshop 
+
+Ted is offering his R workshop today from 1:30 pm to 2:30 pm in Countway 424
+
+## Problem Sets
+
+
+# Data Visualization
+
+## Recommended Reading for Lecture 7
+
+- Chapter 1 and Chapter 5 in _R for Data Science_
+- <http://ggplot2.tidyverse.org/reference/index.html>
+- <https://plot.ly/ggplot2/>
+- _[Streit & Gehlenborg (Nature Methods, 2014)](materials/streit-and-gehlenborg_nature-methods_2014.pdf)_ ([Journal Website](https://www.nature.com/nmeth/journal/v11/n2/full/nmeth.2807.html))
+- _[Slides about data visualization fundamentals](materials/bmi-715_lecture-03.pdf)_
+
+# Dataset
+
+## National Electronic Injury Surveillance System (NEISS)
+
+- Dataset produced by the United States Consumer Product Safety Commision
+- Originally collection of consumer product-related injuries, since 2000 expanded to collect data on all injuries
+- Collected at hospitals around the United States selected to represent as statistically valid sample of US population
+- Data available from 1998 to 2017
+
+## Video Games ...
+
+```{r, out.width = "500px"}
+knitr::include_graphics("figures/neiss-tweet-consoles.jpg")
+```
+
+## ... Books (Hold my beer!)
+
+```{r, out.width = "500px"}
+knitr::include_graphics("figures/neiss-tweet-books.jpg")
+```
+
+## Bodypart Diagram
+
+```{r, out.width = "500px"}
+knitr::include_graphics("figures/neiss-bodyparts.png")
+```
+
+## Preview
+
+- __Lecture 7__
+    - Learn how to visualize NEISS data
+- __Lecture 8__
+    - Compute common statistics on NEISS data
+- __Lecture 10__ 
+    - Cluster NEISS data to find patterns
+- __Lecture 14__
+    - Make a Shiny app to query and visualize NEISS data
+  
+## Group Exercise
+
+

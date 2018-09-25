@@ -1,0 +1,198 @@
+---
+title: "BMI 713/BMIF 313qc<br><small>Class 7: Data Visualization / 25 September 2018</small>"
+author: "Nils Gehlenborg"
+date: ""
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(viridis)
+#library(dplyr)
+library(lubridate)
+
+# 1. if issues with compiling packages (xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun): "xcode-select --install" in Terminal
+# 2. Currently unable to install data.tables package due to Mojave issue: clang: error: unsupported option '-fopenmp'
+#library(plotly)
+```
+
+### Loading the Data
+
+We will use `read_tsv()` from the `readr` package to load the file.
+
+```{r}
+# potential issue in line 160879: additional line break?
+neiss <- read_tsv("data/neiss2017.tsv")
+```
+Let's have a quick look at the tibble to see what we parsed.
+
+```{r}
+# column types and preview of values
+str(neiss)
+```
+
+We can also get a summary of some key statistics.
+
+```{r}
+summary(neiss)
+```
+
+It turns out that the treatment dates were parsed as character strings. In order to be able to work with dates (e.g. to summarize or group data by month or day), we need to tell the parser that we want to read the `Treatment_Date` column as dates.
+
+```{r}
+neiss <- read_tsv("data/neiss2017.tsv", col_types = cols(Treatment_Date = col_date(format="%m/%d/%Y")))
+```
+
+```{r}
+str(neiss)
+```
+
+
+```{r}
+# potential issue in line 160879: additional line break?
+neiss <- read_tsv("data/neiss2017.tsv", col_types = cols(Treatment_Date = col_date(format="%m/%d/%Y")))
+```
+
+
+
+## Count Cases per Month
+
+```{r}
+# https://ro-che.info/articles/2017-02-22-group_by_month_r
+cases_month <- neiss %>% group_by(month=floor_date(Treatment_Date, "month")) %>% summarize(cases=n())
+
+cases_month
+stopifnot( sum(cases_month$cases) == dim(neiss)[1] )
+```
+
+## Count Cases per Weekday
+
+```{r}
+cases_weekday <- neiss %>% group_by(CPSC_Case_Number, day = weekdays(Treatment_Date)) %>% group_by(day) %>% summarize(cases = n())
+
+cases_weekday
+stopifnot( sum(cases_weekday$cases) == dim(neiss)[1] )
+```
+
+## Add Additional Columns to Dataset
+
+Because weekday and month might be handy when visualizing the data, we will add two columns to the tibble: `Treatment_Month` and `Treatment_Weekday`.
+
+```{r}
+# https://www.packtpub.com/mapt/book/big_data_and_business_intelligence/9781784390815/4/ch04lvl1sec52/adding-new-columns-with-dplyr
+neiss <- neiss %>% mutate( Treatment_Weekday=factor(weekdays(Treatment_Date),
+        levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))) %>% mutate( Treatment_Month = factor(months(Treatment_Date),
+        levels=c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")))
+```
+
+## We Need a Mapping for the Codes
+
+Many of the columnn in the tibble use codes that are impossible to interpret without looking them up. NEISS provides a mapping table that we will load now.
+
+```{r}
+neiss_codes <- read_tsv("data/neiss_fmt.txt")
+```
+The `Format name` column indicates the column name in the `neiss` tibble, the `Starting/Ending value for format` entries are the codes, and the `Format value label` are the human readable names for the codes. It seems that in most if not all rows the values for `Starting` and `Ending` values are the same. Let's make sure our assumption about the starting and ending values being identical holds.
+
+```{r}
+#stopifnot( neiss_codes[,2] == neiss_codes[,3]  )
+which(neiss_codes[,2] != neiss_codes[,3])
+```
+The second row contains the codes for mapping ages > 2. That's why an actual range is provided. All other rows are just using a single code and not a range.
+
+```{r}
+cat("AGELTTWO	2	120	2 YEARS AND OLDER")
+```
+
+Since we are not specifically interested in children under two, we will ignore that column for now.
+
+## Mapping Variables using `match`
+
+We will now map the codes for a couple of columns to the `neiss` tibble to get data that doesn't require a lookup table. Let's start with the `Body Part` column. First, we filter the tibble for rows containing codes related to body parts.
+
+```{r}
+# first we filter the body part rows from the code table
+body_part_codes <- neiss_codes %>% filter(`Format name`=="BDYPT")
+body_part_codes 
+```
+
+Next, we remove columns that we won't need.
+
+```{r}
+body_part_codes <- body_part_codes %>% select(`Starting value for format`,`Format value label`)
+body_part_codes
+```
+
+Then, we rename columns to make it possible to use their names without backquotes.
+
+```{r}
+body_part_codes <- body_part_codes %>% rename(Code=`Starting value for format`)  %>% rename(Label=`Format value label`)
+body_part_codes
+```
+
+Finally, we convert the `Label` column in to a factor.
+```{r}
+body_part_codes <- body_part_codes %>% mutate(Label=factor(Label))
+body_part_codes
+```
+
+Using this clean code table and the `match` function, we will create a new column in the `neiss` tibble.
+
+```{r}
+body_part_code_mapping <- match(neiss$Body_Part, body_part_codes$Code)
+neiss <- neiss %>% mutate(Body_Part_Label=body_part_codes[body_part_code_mapping,]$Label)
+```
+
+Since the label still includes the code value, we will redo this step and trim the code numbers using the `sub`(stitute) command.
+
+```{r}
+body_part_code_mapping <- match(neiss$Body_Part, body_part_codes$Code)
+neiss <- neiss %>% mutate(Body_Part_Label=sub(".* - ", "", factor(body_part_codes[body_part_code_mapping,]$Label)))
+
+# see ?regex for examples of patterns
+# Note that we have to explicitly tell R that we want a factor !
+```
+
+Let's repeat this for products and gender (leaving out a few steps that were included for illustration above).
+
+```{r}
+codes <- neiss_codes %>% filter(`Format name`=="PROD")
+codes <- codes %>% rename(Code=`Starting value for format`)  %>% rename(Label=`Format value label`)
+code_mapping <- match(neiss$Product_1, codes$Code)
+neiss <- neiss %>% mutate(Product_1_Label=sub(".* - ", "", factor(codes[code_mapping,]$Label)))
+code_mapping <- match(neiss$Product_2, codes$Code)
+neiss <- neiss %>% mutate(Product_2_Label=sub(".* - ", "", factor(codes[code_mapping,]$Label)))
+
+codes <- neiss_codes %>% filter(`Format name`=="GENDER")
+codes <- codes %>% rename(Code=`Starting value for format`) %>% rename(Label=`Format value label`)
+code_mapping <- match(neiss$Sex, codes$Code)
+neiss <- neiss %>% mutate(Sex_Label=sub(".* - ", "", factor(codes[code_mapping,]$Label)))
+
+```
+
+
+Because it would be painful to repeat these steps manually for every variable that we want to map, we will create a function that will do that for us. The only parameters that we need in addition to the data and code tibbles are the name of the code table column, the name of the `neiss` column, and the name of the new column to be added to the `neiss` tibble.
+
+```{r}
+map_codes <- function( data_tibble, code_tibble, data_column_name, new_data_column_name, code_column_key ) {
+  # data_column_name = variable name (e.g. "Body_Part")
+  # new_data_column_name = variable name (e.g. "Body_Part_Label")  
+  # code_column_key = code table first column value (e.g. "BDYPT")
+  
+  # ... This will be on your homework assignment
+  
+  return( data_tibble )
+}
+
+# map_codes( neiss, neiss_codes, "Location", "Location_Label", "LOC" )
+```
+
+## Let's Make a Plot
+
+```{r}
+g <- ggplot(neiss, aes(Treatment_Month)) + geom_bar(aes(fill=Sex_Label)) + facet_grid(rows = vars(Location))
+g
+```
+

@@ -198,6 +198,13 @@ map_codes <- function( data_tibble, code_tibble, data_column_name, new_data_colu
 # map_codes( neiss, neiss_codes, "Location", "Location_Label", "LOC" )
 ```
 
+## Save the Tibble for Future Use
+
+Since we don't want to re-run the data cleaning steps every time we want to work with our NEISS data tibble, we will store it in a file that we can easily reload.
+```{r}
+save(neiss, neiss_codes,file="data/neiss.Rdata")
+```
+
 ## Let's Make a Plot
 
 ```{r}
@@ -246,4 +253,212 @@ We can also rotate the plot by 90 degrees using `coord_flip`. Adding `x=forcats:
 ```{r}
 g <- ggplot(filter(neiss, Product_1==1313 | Product_1==5040), aes(Treatment_Weekday)) + geom_bar(aes(fill=Sex_Label, x=forcats::fct_rev(Treatment_Weekday))) + facet_grid(cols= vars(Product_1_Label)) + coord_flip()
 g
+```
+
+## A couple more ``ggplot`` examples
+
+## A Simple Data Table
+
+Here is a very simple data table that was used to create the barcharts in _[Streit & Gehlenborg (Nature Methods, 2014)](https://www.nature.com/nmeth/journal/v11/n2/full/nmeth.2807.html)_ ([PDF](materials/streit-and-gehlenborg_nature-methods_2014.pdf)).
+
+```{r, out.width = "90%", echo=FALSE}
+knitr::include_graphics("figures/barchart-data.png")
+```
+
+Let's create a tibble containing this data.
+
+```{r}
+items <- tribble(
+~item, ~category1, ~category2, ~category3, ~category4, ~category5,
+"item1",	6,	29,	18,	30,	7,
+"item2",	8,	27,	17,	12,	12,
+"item3",	12,	21,	16,	3,	19,
+"item4",	20,	18,	16,	9,	7,
+"item5",	22,	5,	15,	20,	1  
+)
+items
+```
+
+And now we are ready to plot! Let's plot the data for `category1` across all items.
+
+```{r}
+ggplot(data = items) + geom_bar(mapping = aes(x=item, y=category1), stat="identity")
+```
+
+What happened? First of all, __our tibble is not tidy!__ How do we make it tidy? 
+
+```{r}
+items <- items %>% gather(`category1`,`category2`,`category3`,`category4`,`category5`,key="category",value="value")
+items
+```
+
+Now we have a tidy tibble that we can use to create a lot of fancy visualizations. But let's try to reproduce our previous plot first.
+
+```{r}
+gg <- ggplot(data = items) + geom_bar(mapping = aes(x=item, y=value), stat="identity")
+gg
+```
+
+This looks different! Maybe this is not surprising, because we didn't specify that we want to plot `category1`. But what did we get instead? Let's use an additional aesthetic to include information about the categories. We will use the `fill` aesthetic, which maps a color to each value of a variable. Here we are using the `category` variable.
+
+```{r}
+gg <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=category), stat="identity")
+gg
+```
+
+We created a stacked bar chart. When we compare the order of the categories in the stacks, we find that they are the reverse of the categories in the figure in the Nature Methods column. We will fix this using a factor operation on the `category` variable.
+
+```{r}
+gg <- ggplot(data = items) + geom_bar(mapping = aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity")
+gg
+```
+
+This fixes the order of the categories in the stack but the title of the legend is messed up. `ggplot` allows you to fix the label but we won't cover this now. 
+
+The next step is to rotate the plot by 90 degrees. We simply add that rotation to the existing plot using the `coord_flip` operation.
+
+```{r}
+gg <- gg + coord_flip()
+gg
+```
+
+## Filters
+
+Sometimes we don't want to plot all the data in our data set. The `tidyverse` offers the handy `filter` function (in the `dplyr` package). We will remove all data but data associated with `category1`.
+
+```{r}
+gg <- ggplot(data=filter(items,category=="category1")) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg
+```
+
+What if we want to view data for both `category1` and `category2`?
+
+```{r}
+gg <- ggplot(data=filter(items,category=="category1" & category=="category2" )) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg
+```
+
+So why does that not work? `filter` operates on the rows of the `items` tibble and since there is no row that contains __both__ `category1` __and__ `category2`, the result of the `filter` operation is empty. The correct approach to get data for `category1` and `category2` is to use a logical OR ("|") operator. 
+
+```{r}
+gg <- ggplot(data=filter(items, category=="category1" | category=="category2" )) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg
+```
+
+We can also filter for items at the same time.
+
+```{r}
+gg <- ggplot(data=filter(items, (item=="item1" | item=="item3" | item=="item5") & (category=="category1" | category=="category2") )) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg
+```
+
+## Creating a Layered Bar Chart
+
+To create the layered bar chart, we need to split the items into one barchart per category. To achieve this, we use the `category` variable to facet the data.
+
+```{r}
+gg <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg <- gg + facet_wrap(~category)
+gg
+```
+ 
+By default, the faceted plots will be arranged to use the available space. However, the number of rows and columns can be set explicitly as well.
+ 
+```{r}
+gg <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gg <- gg + facet_wrap(~category, ncol=5, nrow=1)
+gg
+```
+
+This looks a bit ugly with the default plot width and aspect ratio. We can fix this by providing explict plot dimensions or an aspect ratio. __Note__: This is an R Markdown feature. How would you do this outside of R Markdown?
+
+```{r, fig.width = 10, fig.asp=0.2}
+lbc <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+lbc <- lbc + facet_wrap(~category, ncol=5, nrow=1)
+lbc
+```
+
+## Creating a Grouped Bar Chart
+
+To go from a layered bar chart to a grouped bar chart is very simple with our tibble and ggplot. We need to change only two things: 
+
+1. The `x` aesthetic. Instead of grouping bars by items, we now want to group them by categories.
+2. The variable used to facet. Instead of faceting by category, we now want to facet by item.
+
+```{r, fig.width = 10, fig.asp=0.2}
+gbc <- ggplot(data=items) + geom_bar(mapping=aes(x=category, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+gbc <- gbc + facet_wrap(~item, ncol=5, nrow=1)
+gbc
+```
+
+To create the same arrangement as in the Nature Methods colum, we remove `coord_flip`.
+
+```{r, fig.width = 10, fig.asp=0.2}
+gbc <- ggplot(data=items) + geom_bar(mapping=aes(x=category, y=value, fill=forcats::fct_rev(category)), stat="identity")
+gbc <- gbc + facet_wrap(~item, ncol=5, nrow=1)
+gbc 
+```
+
+## Modifying the Coordinate System
+
+We can switch from Cartesian coordinates to polar coordinates very easily. 
+
+```{r, fig.width = 10, fig.asp=0.2}
+gg <- ggplot(data=items) + geom_bar(mapping=aes(x=category, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_polar("x")
+gg <- gg + facet_wrap(~item, ncol=5, nrow=1)
+gg 
+```
+
+We can apply them to either the `x` or the `y` axis.
+
+```{r, fig.width = 10, fig.asp=0.2}
+gg <- ggplot(data=items) + geom_bar(mapping=aes(x=category, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_polar("y")
+gg <- gg + facet_wrap(~item, ncol=5, nrow=1)
+gg 
+```
+
+This looks fancy but is pretty useless from a visualization point of view. Why? __Note__: You can use this transformation to create pie charts. Because they are not a good visualization approach, I will let you figure this out yourself.
+
+## Colors and Themes
+
+We can easily replace the colors used in these plots. Colors are provided as `scale`. __Note__: There is difference between `color` and `fill`! What is it?
+
+```{r, fig.width = 10, fig.asp=0.2}
+lbc <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+lbc <- lbc + scale_fill_brewer(palette = "Set1") + facet_wrap(~category, ncol=5, nrow=1)
+lbc
+```
+
+This color palette is from the Color Brewer website: <http://colorbrewer2.org>. Let's talk a bit about color!
+
+We can also use custom color palettes (from the`viridis` package).
+
+```{r}
+ggplot(data.frame(x = rnorm(10000), y = rnorm(10000)), aes(x = x, y = y)) +
+  geom_hex() + coord_fixed() +
+  scale_fill_viridis() + theme_bw()
+```
+
+We can also use custom color palettes:
+
+```{r}
+ggplot(data.frame(x = rnorm(10000), y = rnorm(10000)), aes(x = x, y = y)) +
+  geom_hex() + coord_fixed() + theme_bw() +
+  scale_fill_gradientn(colours = terrain.colors(10))
+```
+
+While scales are used to control the colors used for data, the remainder of the plots is controlled by themes.
+
+```{r, fig.width = 10, fig.asp=0.2}
+lbc <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+lbc <- lbc + theme_bw() + scale_fill_brewer(palette = "Set1") + facet_wrap(~category, ncol=5, nrow=1)
+lbc
+```
+
+There are a lot of default themes and they can be customized as well.
+
+```{r, fig.width = 10, fig.asp=0.2}
+lbc <- ggplot(data=items) + geom_bar(mapping=aes(x=item, y=value, fill=forcats::fct_rev(category)), stat="identity") + coord_flip()
+lbc <- lbc + theme_minimal() + scale_fill_brewer(palette = "Set1") + facet_wrap(~category, ncol=5, nrow=1)
+lbc
 ```
